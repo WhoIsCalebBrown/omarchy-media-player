@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "whoiscalebbrown.media-player",
+  "name": "Media Player",
+  "version": "1.0.0",
+  "author": "WhoIsCalebBrown",
+  "license": "MIT",
+  "description": "A compact music player above the Omarchy bar with album art, transport controls, volume, and audio source selection.",
+  "kinds": ["panel"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "MediaPlayer.qml"
+  }
+}
