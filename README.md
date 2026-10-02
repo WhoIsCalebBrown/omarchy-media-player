@@ -1,6 +1,6 @@
 # Omarchy Media Player
 
-A compact music player for the Omarchy Quattro shell. It sits over the top bar and opens into a full player when clicked. It leaves the bar, calendar, workspaces, notifications, and other shell plugins in place.
+A compact music player for the Omarchy Quattro shell. It occupies a slot in the top bar, so workspace and other bar widgets can change width without overlapping it. It opens over the bar when clicked.
 
 ![Expanded media player](preview.png)
 
@@ -11,6 +11,7 @@ A compact music player for the Omarchy Quattro shell. It sits over the top bar a
 - Source selection when multiple media apps have tracks, and an audio output picker.
 - Theme-matched compact appearance and a blurred cover-art background when expanded.
 - Paused tracks remain visible. The player disappears when no media app has a track loaded.
+- The player hides while a window is fullscreen on its monitor or the bar is hidden.
 
 ## Install
 
@@ -22,12 +23,11 @@ Click to expand or collapse, middle-click to play or pause, and scroll to change
 
 ## Configure
 
-The plugin entry in `~/.config/omarchy/shell.json` accepts these optional keys:
+The player is a `bar-widget`. Place it in `bar.layout.left` after the workspaces widget. Its entry accepts these optional keys:
 
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `monitor` | `"primary"` | Monitor name, or `"focused"` |
-| `leftOffset` | `0` | Horizontal position in logical pixels |
 | `topMargin` | `0` | Vertical offset from the bar |
 | `scale` | `1` | Player scale, from `0.6` to `2` |
 | `expandOnHover` | `false` | Open after a short hover |
@@ -35,13 +35,12 @@ The plugin entry in `~/.config/omarchy/shell.json` accepts these optional keys:
 | `visualizerColor` | `"accent"` | `"accent"` or `"artwork"` |
 | `textFont` | `"theme"` | `"theme"` or an installed font family |
 
-For example, place the player beside workspace indicators on `DP-3`:
+For example, place the player after workspace indicators on `DP-3`:
 
 ```json
 {
   "id": "whoiscalebbrown.media-player",
   "monitor": "DP-3",
-  "leftOffset": 190,
   "scale": 0.8
 }
 ```

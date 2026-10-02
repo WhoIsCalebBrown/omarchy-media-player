@@ -1,0 +1,27 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate plugin manifest
+        run: |
+          jq -e '
+            .schemaVersion == 1
+            and .id == "whoiscalebbrown.media-player"
+            and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+            and (.kinds | index("bar-widget") != null)
+            and .entryPoints.barWidget == "MediaPlayer.qml"
+          ' manifest.json
+          test -f MediaPlayer.qml
+      - name: Test media model
+        run: node --test test/model.test.mjs
