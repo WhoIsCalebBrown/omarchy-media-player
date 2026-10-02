@@ -11,32 +11,17 @@ import qs.Commons
 import "views"
 import "MediaModel.js" as Model
 
-// A media-only panel. It draws over the Omarchy bar without reserving space.
+// The compact player lives in the bar; the expanded player floats above it.
 Item {
   id: root
 
-  property var shell: null
-  property var manifest: null
-  readonly property string pluginId: manifest && manifest.id ? manifest.id : "whoiscalebbrown.media-player"
+  property var bar: null
   property var settings: ({})
-  property bool barTransparent: false
+  readonly property bool barTransparent: bar && bar.transparent === true
 
   function setting(key, fallback) {
     var value = settings ? settings[key] : undefined
     return value === undefined || value === null ? fallback : value
-  }
-
-  FileView {
-    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
-    watchChanges: true
-    onFileChanged: reload()
-    onLoaded: {
-      var config = {}
-      try { config = JSON.parse(text()) } catch (error) {}
-      var entries = config && Array.isArray(config.plugins) ? config.plugins : []
-      root.settings = entries.find(function(entry) { return entry && entry.id === root.pluginId }) || ({})
-      root.barTransparent = !!(config.bar && config.bar.transparent)
-    }
   }
 
   readonly property real scaleFactor: Math.max(0.6, Math.min(2, Number(setting("scale", 1)) || 1))
@@ -247,18 +232,76 @@ Item {
     return screens[0]
   }
 
+  readonly property var barWindow: root.QsWindow.window
+  readonly property string barScreenName: barWindow && barWindow.screen ? barWindow.screen.name : ""
+  readonly property bool onConfiguredMonitor: barWindow && barWindow.screen
+    && targetScreen && barWindow.screen.name === targetScreen.name
+  // The slot follows any width change in the preceding widget. Keep a small
+  // leading gap so controls revealed at its right edge remain clickable.
+  readonly property int leadingGap: s(8)
+  implicitWidth: onConfiguredMonitor && hasMedia ? s(300) + leadingGap : 0
+  implicitHeight: bar && bar.barSize ? bar.barSize : Style.bar.sizeHorizontal
+
+  // Reading each ancestor's x makes this binding follow the bar's Row when
+  // Spaces gains or loses workspaces. The mapped point is in bar-window pixels.
+  readonly property real barAnchorX: {
+    var item = root
+    while (item) { item.x; item = item.parent }
+    return root.mapToItem(null, 0, 0).x
+  }
+
   IpcHandler {
-    target: "media-player"
+    target: root.onConfiguredMonitor ? "media-player" : "media-player-" + root.barScreenName
     function expand(): string { root.expand(); return "ok" }
     function collapse(): string { root.collapse(); return "ok" }
     function toggle(): string { root.toggle(); return "ok" }
     function state(): string { return JSON.stringify({ view: root.view, playing: root.mediaPlaying,
-      title: root.mediaTitle, sources: root.mediaSources.length, monitor: win.screen ? win.screen.name : null }) }
+      title: root.mediaTitle, sources: root.mediaSources.length, monitor: win.screen ? win.screen.name : null,
+      anchorX: root.barAnchorX }) }
+  }
+
+  ClippingRectangle {
+    id: compactPill
+    visible: root.onConfiguredMonitor && root.hasMedia && !root.expanded
+    x: root.leadingGap
+    y: Math.round((root.height - height) / 2)
+    width: root.s(300)
+    height: root.s(32)
+    radius: height / 2
+    color: root.surface
+    border.width: 1
+    border.color: root.rim
+    contentUnderBorder: true
+
+    HoverHandler { id: compactHover }
+
+    MediaCompact { anchors.fill: parent; island: root }
+
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+      cursorShape: Qt.PointingHandCursor
+      onClicked: function(mouse) {
+        if (mouse.button === Qt.MiddleButton) root.mediaToggle()
+        else root.expand()
+      }
+      onWheel: function(wheel) {
+        if (root.sink && root.sink.audio && wheel.angleDelta.y !== 0) {
+          root.sink.audio.muted = false
+          root.sink.audio.volume = Math.max(0, Math.min(1,
+            root.sink.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05)))
+        }
+      }
+    }
   }
 
   PanelWindow {
     id: win
     screen: root.targetScreen
+    readonly property var hyprlandMonitor: screen ? Hyprland.monitorFor(screen) : null
+    readonly property var visibleWorkspace: hyprlandMonitor ? hyprlandMonitor.activeWorkspace : null
+    readonly property bool fullscreenHere: visibleWorkspace ? visibleWorkspace.hasFullscreen : false
+    visible: root.onConfiguredMonitor && root.expanded && !fullscreenHere && !(root.bar && root.bar.barHidden)
     anchors { top: true; left: true; right: true }
     margins.top: -Style.bar.sizeHorizontal
     implicitHeight: root.s(400) + root.topMargin
@@ -271,7 +314,9 @@ Item {
 
     Item {
       id: stage
-      anchors.fill: parent
+      x: root.snap(root.barAnchorX)
+      width: parent.width
+      height: parent.height
       property real w: root.s(root.viewSize.w)
       property real h: root.s(root.viewSize.h)
       property real r: root.s(root.viewSize.r)
@@ -281,7 +326,7 @@ Item {
 
       ClippingRectangle {
         id: pill
-        x: root.snap(Number(root.setting("leftOffset", 0)))
+        x: root.leadingGap
         y: root.snap(Style.bar.sizeHorizontal + root.topMargin)
         width: root.snap(Math.max(0, stage.w))
         height: root.snap(Math.max(0, stage.h))
@@ -349,12 +394,6 @@ Item {
           }
 
           ViewSlot {
-            active: root.view === "compact" && root.shapeSettled
-            blurTransition: false
-            width: root.s(300); height: root.s(32)
-            MediaCompact { anchors.fill: parent; island: root }
-          }
-          ViewSlot {
             active: root.view === "expanded" && root.shapeSettled
             blurTransition: false
             width: root.s(root.viewSize.w); height: root.s(root.viewSize.h)
@@ -379,16 +418,23 @@ Item {
   Timer {
     id: hoverExpandTimer
     interval: 380
-    onTriggered: if (hover.hovered && !root.expanded) root.expand()
+    onTriggered: if (compactHover.hovered && !root.expanded) root.expand()
+  }
+  Connections {
+    target: compactHover
+    function onHoveredChanged() {
+      if (compactHover.hovered && root.expandOnHover && !root.expanded)
+        hoverExpandTimer.restart()
+      else
+        hoverExpandTimer.stop()
+    }
   }
   Connections {
     target: hover
     function onHoveredChanged() {
       if (hover.hovered) {
         collapseTimer.stop()
-        if (root.expandOnHover) hoverExpandTimer.restart()
       } else {
-        hoverExpandTimer.stop()
         if (root.expanded) collapseTimer.restart()
       }
     }

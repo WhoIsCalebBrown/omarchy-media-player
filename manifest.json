@@ -2,13 +2,20 @@
   "schemaVersion": 1,
   "id": "whoiscalebbrown.media-player",
   "name": "Media Player",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "WhoIsCalebBrown",
   "license": "MIT",
-  "description": "A compact music player above the Omarchy bar with album art, transport controls, volume, and audio source selection.",
-  "kinds": ["panel"],
-  "keepLoaded": true,
+  "description": "A compact music player in the Omarchy bar with album art, transport controls, volume, and audio source selection.",
+  "kinds": ["bar-widget"],
   "entryPoints": {
-    "panel": "MediaPlayer.qml"
+    "barWidget": "MediaPlayer.qml"
+  },
+  "barWidget": {
+    "displayName": "Media Player",
+    "description": "Music controls and audio source selection",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {}
   }
 }
